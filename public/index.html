@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vores Taskmaster</title>
+</head>
+<body>
+    <h1>Taskmaster</h1>
+    <form id="taskForm">
+        <input id="taskText" type="text" placeholder="Skriv en opgave" required>
+        <button type="submit">Tilføj</button>
+    </form>
+    <p id="message"></p>
+    <ul id="taskList"></ul>
+
+    <script>
+        const taskList = document.querySelector('#taskList');
+        const taskForm = document.querySelector('#taskForm');
+        const taskText = document.querySelector('#taskText');
+        const message = document.querySelector('#message');
+
+        // fetch() sender en HTTP-request til den samme server som leverer HTML.
+        // Derfor bruger vi '/api/tasks' og IKKE en lokal filsti.
+        async function loadTasks() {
+            try {
+                const response = await fetch('/api/tasks'); // GET er standard.
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const tasks = await response.json(); // Fra JSON til JavaScript-array.
+
+                taskList.replaceChildren();
+                for (const task of tasks) {
+                    const li = document.createElement('li');
+                    li.textContent = task.text; // textContent behandler indholdet som tekst.
+
+                    const button = document.createElement('button');
+                    button.textContent = 'Slet';
+                    button.addEventListener('click', () => deleteTask(task.id));
+                    li.append(' ', button);
+                    taskList.append(li);
+                }
+                message.textContent = '';
+            } catch (error) {
+                message.textContent = `Kunne ikke hente opgaver: ${error.message}`;
+            }
+        }
+
+        taskForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); // Undgå at browseren genindlæser siden.
+            try {
+                const response = await fetch('/api/tasks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: taskText.value })
+                });
+                // fetch() giver ikke automatisk en exception ved HTTP 400/500.
+                // Derfor undersøger vi response.ok selv.
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                taskText.value = '';
+                await loadTasks();
+            } catch (error) {
+                message.textContent = `Kunne ikke gemme opgave: ${error.message}`;
+            }
+        });
+
+        async function deleteTask(id) {
+            try {
+                const response = await fetch(`/api/tasks/${id}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                await loadTasks();
+            } catch (error) {
+                message.textContent = `Kunne ikke slette opgave: ${error.message}`;
+            }
+        }
+
+        loadTasks(); // Hent listen, når siden åbnes.
+    </script>
+</body>
+</html>
